@@ -1,0 +1,125 @@
+﻿<?php
+
+include($_SERVER["DOCUMENT_ROOT"].'/class/Load_tpl.class');
+include($_SERVER["DOCUMENT_ROOT"].'/class/mysql.class');
+
+$tpl_main = new LoadTPL($_SERVER["DOCUMENT_ROOT"].'/Hjalte/template/','hjalte.tpl');
+$tpl_footer = new LoadTPL($_SERVER["DOCUMENT_ROOT"].'/Hjalte/template/','footer.tpl');
+$StartBanner="";
+
+
+
+// find de nyeste de har jeg lavet
+$Dagbog=DOSQL('SELECT `id`, `beskrivelse`, `hvad`, `timestamp`, DATE_FORMAT(`dato`, \'%d. %b. %Y\') as `dkdato`, `privat` FROM dagbog where dato<=curdate() and privat=0 order by dato desc limit 0,3',"JA_Hjalte");
+if(is_array($Dagbog)){
+	$StartBanner .='<li>
+		<a href="dagbog">
+			<img src="images/dagbog.png">
+		
+		<div data-scroll-reveal="enter bottom but wait 1s" class="slider-detils">
+			<h3>Det har jeg lavet</h3>
+			';				   
+	for($i=0;$i<count($Dagbog);$i++){
+				$StartBanner .='<span>'.$Dagbog[$i]["dkdato"].'<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'.$Dagbog[$i]["hvad"].'</span>
+				';
+			}//for slut
+	$StartBanner .=' </div>
+		</a>
+	</li>
+	';
+}
+// find de nyes billeder 
+// mangler databasen til billeder
+$NyeBilleder=DOSQL('SELECT Hjalte_Main_id,pics_id,name,SortOrder,filename,comment,private,exif, DATE_FORMAT(exif, \'%d. %b. %Y\') as dkdato	FROM Hjalte_Pics_Main, Hjalte_Main, pictures 
+					where Hjalte_Pics_Main.Hjalte_Main_id=Hjalte_Main.id 
+						and Hjalte_Pics_Main.pics_id=pictures.id and 
+						Hjalte_Main.id <>52 
+					order by pictures.exif DESC LIMIT 0,3',"JA_Pics");
+// finder path mm til billeder
+$BilledeConf=DOSQL('SELECT `RootPath` , `PicsFolder` , `ThumbFolder` `ViewFolder` FROM `Config` WHERE 1',"JA_Pics");
+
+//viser de nyest billeder
+if(is_array($NyeBilleder)){
+	$StartBanner .='
+			';				   
+	for($i=0;$i<count($NyeBilleder);$i++){
+
+				$StartBanner .='<li>
+		<a href="Billeder?Galleri='.$NyeBilleder[$i]["Hjalte_Main_id"].'">
+		
+			<img src="GetImage.php?path='.base64_encode($BilledeConf[0]["RootPath"]).'&img='.base64_encode($NyeBilleder[$i]["filename"]).'">
+		
+		<div data-scroll-reveal="enter bottom but wait 1s" class="slider-detils">
+			<h3>Billeder</h3>
+			<span>'.$NyeBilleder[$i]["dkdato"].'<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'.$NyeBilleder[$i]["name"].' '.$NyeBilleder[$i]["comment"].'</span>
+		 </div>
+		</a>
+	</li>
+	';
+	}// slut for
+} // slut if
+
+// Find de nyeste videoer
+$NyeVideoer=DOSQL('SELECT video.id as id, video.filename, 
+							IFNULL(video.comment, \' \') as comment, video.laengde,
+							 DATE_FORMAT(recorded, \'%d. %b. %Y\') as dkdato,	
+							recorded, video.spilletid
+							FROM Hjalte_Video, video 
+							where private = 0 and Hjalte_Video.video_id = video.id
+                            order by recorded DESC limit 0,3','JA_Video');
+// finde path mm til videoer							
+$VideoConfig =DOSQL('SELECT `SDFolder`,`ThumbFolder`,`HDFolder`,`RootPath` FROM `Config` order by id DESC limit 0,1 ','JA_Video');
+
+// viser nyeste billeder
+if(is_array($NyeVideoer)){
+	$StartBanner .='
+			';				   
+	for($i=0;$i<count($NyeVideoer);$i++){
+
+				$StartBanner .='<li>
+		<a href="Video?Galleri='.$NyeVideoer[$i]["id"].'">
+		
+			<img src="GetImage.php?path='.base64_encode($VideoConfig[0]["RootPath"]).'&img='.base64_encode(substr($NyeVideoer[$i]["filename"], 0,strrpos($NyeVideoer[$i]["filename"],'.')).'.jpeg').'&size='.$VideoConfig[0]["ThumbFolder"].'">
+		
+		<div data-scroll-reveal="enter bottom but wait 1s" class="slider-detils">
+			<h3>Video</h3>
+			<span>'.$NyeVideoer[$i]["dkdato"].'<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'.$NyeVideoer[$i]["comment"].'</span>
+		 </div>
+		</a>
+	</li>
+	';
+	}// slut for
+} // slut if							
+// find de nyest guldkorn
+$NyeGuldkorn=DOSQL('SELECT `id`, `guldkorn`, DATE_FORMAT(`dato`, \'%d. %b. %Y\') as `dkdato`, `privat` FROM `guldkorn` WHERE privat=0 and dato<=curdate() order by dato DESC limit 0,3',"JA_Hjalte");
+if(is_array($NyeGuldkorn)){
+	$StartBanner .='<li>
+		<a href="guldkorn"">
+			<img src="images/guldkorn.png">
+		
+		<div data-scroll-reveal="enter bottom but wait 1s" class="slider-detils">
+			<h3>Guldkorn</h3>
+			';				   
+	for($i=0;$i<count($NyeGuldkorn);$i++){
+				$StartBanner .='<span>'.$NyeGuldkorn[$i]["dkdato"].'<br /> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;'.$NyeGuldkorn[$i]["guldkorn"].'</span>
+				';
+			}//for slut
+	$StartBanner .=' </div>
+		</a>
+	</li>
+	';
+}//if...
+
+
+$tpl_main->SetContent('[BANNER]',$StartBanner);
+echo $tpl_main->Create();
+exit ($tpl_footer->Create());
+
+function DOSQL($query, $dbname){
+	$sql = new MySQL($dbname,"JA_Hjalte_reader","!reader!");
+	$temp1 =$sql->Query($query);
+	$sql->Close();
+	return($temp1);
+	}//dosql
+
+?>
